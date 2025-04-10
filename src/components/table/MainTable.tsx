@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { FiPlus } from "react-icons/fi";
 
-// A functional component for a scrollable table with dynamic rows and columns.
 const ScrollableTable: React.FC = () => {
   // Initial table layout: two columns and two rows.
   const initialColumns = ['Column 1', 'Column 2'];
@@ -16,6 +15,8 @@ const ScrollableTable: React.FC = () => {
   // State for header (columns) and body (rows).
   const [columns, setColumns] = useState<string[]>(initialColumns);
   const [rows, setRows] = useState<string[][]>(initialRows);
+
+  // (Optional) If you want resizable columns, track each column’s width:
   const [columnWidths, setColumnWidths] = useState<number[]>(initialColumns.map(() => 200));
   const [resizingColumn, setResizingColumn] = useState<number | null>(null);
   const [startX, setStartX] = useState<number>(0);
@@ -23,7 +24,6 @@ const ScrollableTable: React.FC = () => {
 
   // Ref to the scrollable container.
   const containerRef = useRef<HTMLDivElement>(null);
-
   // Refs to hold scroll positions for restoration.
   const scrollTopRef = useRef<number | null>(null);
   const scrollLeftRef = useRef<number | null>(null);
@@ -33,7 +33,7 @@ const ScrollableTable: React.FC = () => {
     if (containerRef.current) {
       if (scrollTopRef.current !== null) {
         containerRef.current.scrollTop = scrollTopRef.current;
-        scrollTopRef.current = null; // reset after restoration
+        scrollTopRef.current = null;
       }
       if (scrollLeftRef.current !== null) {
         containerRef.current.scrollLeft = scrollLeftRef.current;
@@ -42,7 +42,7 @@ const ScrollableTable: React.FC = () => {
     }
   }, [rows, columns]);
 
-  // Handle mouse down on resize handle
+  // Resizing handlers (if you want to support column resizing)
   const handleResizeStart = (e: React.MouseEvent, columnIndex: number) => {
     e.preventDefault();
     setResizingColumn(columnIndex);
@@ -50,26 +50,21 @@ const ScrollableTable: React.FC = () => {
     setStartWidth(columnWidths[columnIndex]);
   };
 
-  // Handle mouse move during resize
   const handleResizeMove = (e: MouseEvent) => {
     if (resizingColumn === null) return;
-    
     const diff = e.pageX - startX;
-    const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
-    
-    setColumnWidths(prev => {
+    const newWidth = Math.max(50, startWidth + diff);
+    setColumnWidths((prev) => {
       const newWidths = [...prev];
       newWidths[resizingColumn] = newWidth;
       return newWidths;
     });
   };
 
-  // Handle mouse up to end resize
   const handleResizeEnd = () => {
     setResizingColumn(null);
   };
 
-  // Add and remove event listeners for resize
   useEffect(() => {
     if (resizingColumn !== null) {
       window.addEventListener('mousemove', handleResizeMove);
@@ -81,18 +76,19 @@ const ScrollableTable: React.FC = () => {
     };
   }, [resizingColumn, startX, startWidth]);
 
-  // Cell style: fixed width based on state; used for regular cells.
+  // Helper: style each regular cell. If using resizable columns, use widths from state.
   const cellStyle = (index: number): React.CSSProperties => ({
-    minWidth: '50px',
+    fontSize: '13px',
+    minWidth: '200px',
     width: `${columnWidths[index]}px`,
     border: '1px solid #ddd',
-    padding: '4px',
+    padding: '8px',
     whiteSpace: 'nowrap',
     textAlign: 'left',
     position: 'relative',
   });
 
-  // Style for the resize handle in header cells.
+  // Resize handle style for header cells.
   const resizeHandleStyle: React.CSSProperties = {
     position: 'absolute',
     right: 0,
@@ -103,65 +99,53 @@ const ScrollableTable: React.FC = () => {
     backgroundColor: resizingColumn !== null ? '#0066ff' : 'transparent',
   };
 
-  // Pinned header cell style for the "Add Column" button.
+  // The pinned (or "Add Column") header cell. Its style does not force the table’s width.
   const pinnedCellStyle: React.CSSProperties = {
-    width: '35px',
-    aspectRatio: '1',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'sticky',
+    ...cellStyle(0), // use same height and padding as other cells
+    // instead of using cellStyle with an invalid index, we set a fixed width for the pinned cell
+    width: '50px',
+    minWidth: '50px',
     right: 0,
+    backgroundColor: '#fff',
     zIndex: 2,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     cursor: 'pointer',
   };
 
-  // Add a new row. The new row will match the current column count.
-  // It also saves the current vertical scroll position before update.
+  // Handlers for adding rows and columns.
   const handleAddRow = () => {
     if (containerRef.current) {
       scrollTopRef.current = containerRef.current.scrollTop;
     }
-    // Create a row with empty values.
+    // Create a new row with empty cells.
     const newRow = columns.map(() => '');
-    setRows(prevRows => [...prevRows, newRow]);
+    setRows((prev) => [...prev, newRow]);
   };
 
-  // Handle cell content change.
-  const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
-    setRows(prevRows => {
-      const newRows = [...prevRows];
-      newRows[rowIndex][colIndex] = value;
-      return newRows;
-    });
-  };
-
-  // Add a new column to every row. Saves the current horizontal scroll position.
   const handleAddColumn = () => {
     if (containerRef.current) {
       scrollLeftRef.current = containerRef.current.scrollLeft;
     }
-    // Update header: append a new column name.
     const newColumnName = `Column ${columns.length + 1}`;
-    setColumns(prevColumns => [...prevColumns, newColumnName]);
-    setColumnWidths(prevWidths => [...prevWidths, 200]); // Add default width for new column
-
-    // Update every row: append a blank cell for the new column.
-    setRows(prevRows =>
-      prevRows.map(row => [...row, ''])
-    );
+    setColumns((prev) => [...prev, newColumnName]);
+    // When adding a column, also add a default width for it.
+    setColumnWidths((prev) => [...prev, 200]);
+    setRows((prevRows) => prevRows.map((row) => [...row, '']));
   };
 
   // Styles for the scrollable container.
   const containerStyle: React.CSSProperties = {
-    width: '100%',
-    height: '88%',
-    backgroundColor: 'white',
+    width: '100%', // Now fills the parent's width exactly
+    height: '85%',
     overflow: 'auto',
-    position: 'relative',
+    border: '1px solid #ccc',
+    backgroundColor: '#fff',
   };
 
-  // Table style: using table-auto and allowing natural expansion.
+  // Table style:
+  // We let the table expand naturally by using table-layout: auto and a min-width of min-content.
   const tableStyle: React.CSSProperties = {
     borderCollapse: 'collapse',
     tableLayout: 'auto',
@@ -169,8 +153,8 @@ const ScrollableTable: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full bg-gray-100">
-      {/* header */}
+    <div className="size-full bg-gray-100">
+      {/* Page header */}
       <div className="flex justify-between items-center py-2 px-4">
         <div className="text-base font-bold">Main Table</div>
         <div className="flex items-center gap-2 text-sm">
@@ -178,17 +162,12 @@ const ScrollableTable: React.FC = () => {
           <button className="bg-gray-100 px-2 py-1 rounded-sm">Download</button>
         </div>
       </div>
-
+      
       {/* Scrollable container */}
       <div ref={containerRef} style={containerStyle}>
         <table style={tableStyle}>
-          <thead className="text-sm">
-            <tr style={{
-              position: 'sticky',
-              top: 0,
-              backgroundColor: '#fff',
-              zIndex: 1,
-            }}>
+          <thead>
+            <tr style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
               {columns.map((col, index) => (
                 <th key={index} style={cellStyle(index)}>
                   {col}
@@ -198,14 +177,13 @@ const ScrollableTable: React.FC = () => {
                   />
                 </th>
               ))}
-              {/* Pinned header cell for Add Column */}
-              <th
-                style={pinnedCellStyle}
-                className="hover:bg-gray-100 bg-white transition-all duration-200"
-                onClick={handleAddColumn}
-              >
-                <FiPlus size={20} />
+              {/* Pinned header cell for "Add Column" */}
+              <th style={pinnedCellStyle}>
+                <button onClick={handleAddColumn}>
+                  <FiPlus size={20} />
+                </button>
               </th>
+              
             </tr>
           </thead>
           <tbody>
@@ -216,7 +194,13 @@ const ScrollableTable: React.FC = () => {
                     <input
                       type="text"
                       value={cell}
-                      onChange={(e) => handleCellChange(rowIndex, cellIndex, e.target.value)}
+                      onChange={(e) =>
+                        setRows((prevRows) => {
+                          const newRows = [...prevRows];
+                          newRows[rowIndex][cellIndex] = e.target.value;
+                          return newRows;
+                        })
+                      }
                       style={{
                         width: '100%',
                         border: 'none',
@@ -226,8 +210,9 @@ const ScrollableTable: React.FC = () => {
                     />
                   </td>
                 ))}
-                {/* Extra cell for alignment with pinned header cell */}
-                <td style={cellStyle(columns.length)}></td>
+                {/* Extra cell for alignment with the pinned header cell.
+                    Use a fixed style rather than cellStyle with an invalid index. */}
+                {/* <td style={pinnedCellStyle}></td> */}
               </tr>
             ))}
           </tbody>
@@ -235,12 +220,16 @@ const ScrollableTable: React.FC = () => {
       </div>
 
       {/* Fixed Add Row button */}
-      <div className="flex justify-start items-start py-2 px-4">
-        <Button
-          onClick={handleAddRow}
-        >
-          Add Row
-        </Button>
+     {/* Bottom pinned bar (like the image) */}
+      <div 
+        className="flex justify-start items-start h-10 w-full bg-white text-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+        onClick={handleAddRow}>
+        <div className="flex justify-center items-center w-10 h-full border border-gray-200">
+           <FiPlus size={15} />
+        </div>
+        <div className="flex justify-start items-center size-full pl-2 border border-gray-200">
+          New Row
+        </div>
       </div>
     </div>
   );

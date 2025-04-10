@@ -24,11 +24,11 @@ export default function RootLayout({
           inter.className
         )}
       >
-        <div className="flex min-h-screen">
-          <aside className="w-54 bg-gray-100 text-white">
+        <div className="flex size-full">
+          <aside className="flex min-w-54 overflow-hidden bg-gray-100 text-white">
             <Navbar />
           </aside>
-          <main className="flex-1">
+          <main className="flex grow flex-col [contain:strict]">
             {children}
           </main>
         </div>

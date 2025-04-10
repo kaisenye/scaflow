@@ -8,7 +8,7 @@ import { PiFiles } from "react-icons/pi";
 
 export default function Navbar() {
   return (
-    <div className="fixed w-54 top-0 left-0 flex flex-col justify-between h-screen px-2 py-4 bg-gray-100 text-black">
+    <div className="w-full top-0 left-0 flex flex-col justify-between h-screen px-2 py-4 bg-gray-100 text-black">
       <div>
         {/* Logo and title */}
         <Link href="/" className="flex items-center mb-8">
