@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect, ReactNode } from 'react';
 import { FiPlus, FiType, FiHash, FiCalendar, FiList, FiCheckSquare, FiFile } from "react-icons/fi";
-import Checkbox from './Checkbox';
+import { Button } from '@/components/ui/button';
 import AddColumnModal from './AddColumnModal';
 import EditColumnModal from './EditColumnModal';
 import TableHeader from './TableHeader';
 import TableRow from './TableRow';
+import openaiService from '@/services/openai';
 
 // Define column type interface inline
 interface ColumnType {
@@ -88,6 +89,17 @@ const Table: React.FC = () => {
   // Ref for the table element to set its width
   const tableRef = useRef<HTMLTableElement>(null);
   
+  // State for tracking processing status
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [processingStatus, setProcessingStatus] = useState<{
+    total: number,
+    completed: number,
+    current: { row: number, col: number } | null
+  }>({ total: 0, completed: 0, current: null });
+  
+  // State to track all cells currently being processed
+  const [processingCells, setProcessingCells] = useState<Set<string>>(new Set());
+
   // Calculate and update table width whenever column widths change
   useEffect(() => {
     if (tableRef.current) {
@@ -382,6 +394,163 @@ const Table: React.FC = () => {
     setShowEditModal(false);
   };
 
+  // Function to validate if a file is an image
+  const isImageFile = (file: File | null): boolean => {
+    if (!file) return false;
+    return file.type.startsWith('image/');
+  };
+
+  // Function to run the LLM engine on all cells
+  const runLlmEngine = async () => {
+    // Check if there are any files to process
+    const hasFiles = files.some(row => row.some(file => file !== null));
+    if (!hasFiles) {
+      alert('No image files found. Please upload at least one image file before running the engine.');
+      return;
+    }
+
+    setIsProcessing(true);
+    // Clear processing cells set
+    setProcessingCells(new Set());
+    
+    // Prepare a list of all cells to process
+    type CellToProcess = {
+      rowIndex: number;
+      colIndex: number;
+      imageFile: File;
+      prompt: string;
+      type: string;
+    };
+    
+    const cellsToProcess: CellToProcess[] = [];
+    
+    // Find all cells that need processing
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      // Get the file for this row (should be in the first column)
+      const fileColumn = columnData.findIndex(col => col.isFileInput);
+      if (fileColumn === -1) continue;
+      
+      const imageFile = files[rowIndex]?.[fileColumn];
+      if (!imageFile || !isImageFile(imageFile)) continue;
+      
+      // Find all non-file columns with prompts
+      for (let colIndex = 0; colIndex < columnData.length; colIndex++) {
+        const col = columnData[colIndex];
+        
+        // Skip file input columns and columns without prompts
+        if (col.isFileInput || !col.llmPrompt) continue;
+        
+        cellsToProcess.push({
+          rowIndex,
+          colIndex,
+          imageFile,
+          prompt: col.llmPrompt || '',
+          type: col.type
+        });
+      }
+    }
+    
+    // Set initial processing status
+    setProcessingStatus({
+      total: cellsToProcess.length,
+      completed: 0,
+      current: null
+    });
+    
+    if (cellsToProcess.length === 0) {
+      setIsProcessing(false);
+      alert('No cells to process. Please add columns with prompts.');
+      return;
+    }
+    
+    // Process cells in batches of 3
+    const batchSize = 3;
+    let completedCells = 0;
+    
+    // Process in batches
+    for (let i = 0; i < cellsToProcess.length; i += batchSize) {
+      const batch = cellsToProcess.slice(i, i + batchSize);
+      
+      // Update the current cells being processed
+      const cellKeys = new Set<string>();
+      batch.forEach(cell => {
+        const cellKey = `${cell.rowIndex}-${cell.colIndex}`;
+        cellKeys.add(cellKey);
+      });
+      
+      // Update all cells that are currently being processed
+      setProcessingCells(prevCells => {
+        const newCells = new Set(prevCells);
+        cellKeys.forEach(key => newCells.add(key));
+        return newCells;
+      });
+      
+      // Update status for UI display
+      if (batch.length > 0) {
+        setProcessingStatus(prev => ({
+          ...prev,
+          current: { row: batch[0].rowIndex, col: batch[0].colIndex }
+        }));
+      }
+      
+      // Process batch in parallel
+      const results = await Promise.all(
+        batch.map(cell => 
+          openaiService.analyzeImage({
+            imageFile: cell.imageFile,
+            prompt: cell.prompt,
+            type: cell.type
+          })
+          .then(result => ({ result, cell }))
+          .catch(error => ({ 
+            result: { content: '', error: error instanceof Error ? error.message : 'Unknown error' },
+            cell 
+          }))
+        )
+      );
+      
+      // Update UI with results
+      results.forEach(({ result, cell }) => {
+        const { rowIndex, colIndex } = cell;
+        const cellKey = `${rowIndex}-${colIndex}`;
+        
+        // Remove from processing cells
+        setProcessingCells(prevCells => {
+          const newCells = new Set(prevCells);
+          newCells.delete(cellKey);
+          return newCells;
+        });
+        
+        // Update the cell with the result
+        if (!result.error) {
+          setRows(prevRows => {
+            const newRows = [...prevRows];
+            newRows[rowIndex][colIndex] = result.content;
+            return newRows;
+          });
+        } else {
+          console.error(`Error processing cell (${rowIndex}, ${colIndex}):`, result.error);
+        }
+        
+        // Update completed count
+        completedCells++;
+        setProcessingStatus(prev => ({
+          ...prev,
+          completed: completedCells
+        }));
+      });
+    }
+    
+    // Reset processing state when done
+    setIsProcessing(false);
+    setProcessingCells(new Set());
+    setProcessingStatus({
+      total: 0,
+      completed: 0,
+      current: null
+    });
+  };
+
   return (
     <div className="size-full bg-gray-100">
       {/* Page header */}
@@ -390,6 +559,18 @@ const Table: React.FC = () => {
         <div className="flex items-center gap-2 text-sm">
           <button className="bg-gray-100 px-2 py-1 rounded-sm">Share</button>
           <button className="bg-gray-100 px-2 py-1 rounded-sm">Download</button>
+          <Button 
+            variant="default" 
+            className="px-2 py-0 rounded-sm" 
+            size="sm"
+            onClick={runLlmEngine}
+            disabled={isProcessing}
+          >
+            {isProcessing ? 
+              `Processing ${processingStatus.completed}/${processingStatus.total}...` : 
+              'Run Engine'
+            }
+          </Button>
         </div>
       </div>
       
@@ -431,11 +612,44 @@ const Table: React.FC = () => {
                   columnData={columnData}
                   files={files}
                   onFileSelect={handleFileSelect}
+                  processingCells={processingCells}
                 />
               ))}
             </tbody>
           </table>
         </div>
+        
+        {/* Processing status overlay */}
+        {isProcessing && (
+          <div className="absolute bottom-0 left-0 right-0 bg-blue-50 p-2 border-t border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                <span className="text-sm text-blue-700">
+                  Processing {processingStatus.completed} of {processingStatus.total} cells...
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1 max-w-[60%]">
+                {Array.from(processingCells).map(cellKey => {
+                  const [rowIndex, colIndex] = cellKey.split('-').map(Number);
+                  return (
+                    <span key={cellKey} className="text-xs bg-blue-100 text-blue-600 px-1 py-0.5 rounded">
+                      Row {rowIndex + 1}, {columns[colIndex]}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 h-1 mt-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${processingStatus.total > 0 ? (processingStatus.completed / processingStatus.total) * 100 : 0}%`
+                }}
+              ></div>
+            </div>
+          </div>
+        )}
         
         {/* Edit Column Modal - positioned inside scrollable container */}
         {showEditModal && (

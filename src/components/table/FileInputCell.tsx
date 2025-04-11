@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { FiFile, FiX, FiUpload } from 'react-icons/fi';
+import { FiFile, FiX, FiUpload, FiImage } from 'react-icons/fi';
 
 interface FileInputCellProps {
   value: string;
@@ -10,6 +10,7 @@ interface FileInputCellProps {
 const FileInputCell: React.FC<FileInputCellProps> = ({ value, file, onFileSelect }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hover, setHover] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleClick = () => {
     fileInputRef.current?.click();
@@ -17,6 +18,17 @@ const FileInputCell: React.FC<FileInputCellProps> = ({ value, file, onFileSelect
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
+    
+    // Check if a file was selected
+    if (selectedFile) {
+      // Validate that it's an image file
+      if (!selectedFile.type.startsWith('image/')) {
+        setError('Only image files are supported (JPEG, PNG, etc.)');
+        return;
+      }
+      setError(null);
+    }
+    
     onFileSelect(selectedFile);
     
     // Reset the input so the same file can be selected again if needed
@@ -27,7 +39,19 @@ const FileInputCell: React.FC<FileInputCellProps> = ({ value, file, onFileSelect
 
   const handleRemoveFile = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setError(null);
     onFileSelect(null);
+  };
+
+  // Function to get file icon based on file type
+  const getFileIcon = () => {
+    if (!file) return <FiUpload size={14} />;
+    
+    if (file.type.startsWith('image/')) {
+      return <FiImage className="text-green-500" size={16} />;
+    }
+    
+    return <FiFile className="text-blue-500" size={16} />;
   };
 
   return (
@@ -41,14 +65,15 @@ const FileInputCell: React.FC<FileInputCellProps> = ({ value, file, onFileSelect
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
+        accept="image/*" // Restrict to image files
         className="hidden"
       />
       
       {file ? (
         <>
           <div className="flex items-center flex-1 overflow-hidden">
-            <FiFile className="text-blue-500 mr-2 flex-shrink-0" size={16} />
-            <span className="text-xs font-medium text-gray-600 truncate flex-1" title={file.name}>
+            {getFileIcon()}
+            <span className="text-xs font-medium text-gray-600 truncate ml-2 flex-1" title={file.name}>
               {file.name}
             </span>
           </div>
@@ -61,8 +86,14 @@ const FileInputCell: React.FC<FileInputCellProps> = ({ value, file, onFileSelect
         </>
       ) : (
         <div className="flex items-center justify-center w-fit text-gray-400 gap-2">
-          <FiUpload className="mr-2" size={14} />
-          <span className="text-xs">Select a file</span>
+          <FiImage className="mr-1" size={14} />
+          <span className="text-xs">Select an image</span>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute top-full left-0 right-0 bg-red-50 text-red-500 text-xs p-1 border border-red-200 rounded z-10">
+          {error}
         </div>
       )}
     </div>

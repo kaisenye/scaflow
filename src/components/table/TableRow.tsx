@@ -15,6 +15,7 @@ interface TableRowProps {
   columnData: Array<{ type: string; isFileInput?: boolean }>;
   files?: (File | null)[][];
   onFileSelect?: (rowIndex: number, cellIndex: number, file: File | null) => void;
+  processingCells?: Set<string>;
 }
 
 const TableRow: React.FC<TableRowProps> = ({
@@ -30,29 +31,39 @@ const TableRow: React.FC<TableRowProps> = ({
   columnData,
   files,
   onFileSelect,
+  processingCells = new Set()
 }) => {
-  // Render a cell based on column type
-  const renderCell = (cellIndex: number, value: string) => {
-    const column = columnData[cellIndex];
+  const renderCell = (cellIndex: number, cellValue: string) => {
+    const cellKey = `${rowIndex}-${cellIndex}`;
+    const isProcessing = processingCells.has(cellKey);
     
-    if (column?.isFileInput && onFileSelect) {
+    // Render a file input cell if this column is a file input
+    if (columnData[cellIndex]?.isFileInput) {
       return (
         <FileInputCell
-          value={value}
+          value={cellValue}
           file={files?.[rowIndex]?.[cellIndex] || null}
-          onFileSelect={(file: File | null) => onFileSelect(rowIndex, cellIndex, file)}
+          onFileSelect={(file) => onFileSelect?.(rowIndex, cellIndex, file)}
         />
       );
     }
     
-    // Default text input for other cell types
+    // Render a regular editable cell
     return (
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onCellChange(rowIndex, cellIndex, e.target.value)}
-        className="w-full h-full border-none outline-none bg-transparent"
-      />
+      <div className="relative w-full h-full">
+        {isProcessing && (
+          <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        <input
+          type="text"
+          value={cellValue}
+          onChange={(e) => onCellChange(rowIndex, cellIndex, e.target.value)}
+          className={`w-full h-full bg-transparent focus:outline-none ${isProcessing ? 'opacity-50' : ''}`}
+          disabled={isProcessing}
+        />
+      </div>
     );
   };
 
