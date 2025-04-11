@@ -2,6 +2,11 @@ import React from 'react';
 import Checkbox from './Checkbox';
 import FileInputCell from './FileInputCell';
 
+interface Category {
+  name: string;
+  color: string;
+}
+
 interface TableRowProps {
   row: string[];
   rowIndex: number;
@@ -12,7 +17,11 @@ interface TableRowProps {
   onMouseLeave: () => void;
   onRowSelect: (index: number) => void;
   onCellChange: (rowIndex: number, cellIndex: number, value: string) => void;
-  columnData: Array<{ type: string; isFileInput?: boolean }>;
+  columnData: Array<{ 
+    type: string; 
+    isFileInput?: boolean;
+    categories?: Category[];
+  }>;
   files?: (File | null)[][];
   onFileSelect?: (rowIndex: number, cellIndex: number, file: File | null) => void;
   processingCells?: Set<string>;
@@ -33,9 +42,62 @@ const TableRow: React.FC<TableRowProps> = ({
   onFileSelect,
   processingCells = new Set()
 }) => {
+  const renderSelectPills = (value: string, columnIndex: number) => {
+    const columnType = columnData[columnIndex]?.type;
+    const categories = columnData[columnIndex]?.categories || [];
+    
+    // Helper to find category by name
+    const findCategory = (name: string) => {
+      return categories.find(cat => cat.name.trim() === name.trim());
+    };
+    
+    if (columnType === 'singleSelect') {
+      // For single select, render one pill
+      const category = findCategory(value);
+      if (category) {
+        return (
+          <div className="flex h-full items-center">
+            <span 
+              className="text-xs rounded font-medium px-2 py-0.5 text-white truncate"
+              style={{ backgroundColor: category.color }}
+            >
+              {value}
+            </span>
+          </div>
+        );
+      }
+    } else if (columnType === 'multiSelect' && value) {
+      // For multi-select, split by comma and render multiple pills
+      const valueArray = value.split(',').map(v => v.trim()).filter(v => v);
+      
+      if (valueArray.length > 0) {
+        return (
+          <div className="flex h-full items-center overflow-x-auto no-scrollbar space-x-1">
+            {valueArray.map((val, index) => {
+              const category = findCategory(val);
+              return (
+                <span 
+                  key={index}
+                  className="text-xs rounded font-medium px-2 py-0.5 text-white whitespace-nowrap"
+                  style={{ backgroundColor: category?.color || '#6B7280' }}
+                >
+                  {val}
+                </span>
+              );
+            })}
+          </div>
+        );
+      }
+    }
+    
+    // Default: return null and let the regular input field render
+    return null;
+  };
+
   const renderCell = (cellIndex: number, cellValue: string) => {
     const cellKey = `${rowIndex}-${cellIndex}`;
     const isProcessing = processingCells.has(cellKey);
+    const columnType = columnData[cellIndex]?.type;
     
     // Render a file input cell if this column is a file input
     if (columnData[cellIndex]?.isFileInput) {
@@ -46,6 +108,23 @@ const TableRow: React.FC<TableRowProps> = ({
           onFileSelect={(file) => onFileSelect?.(rowIndex, cellIndex, file)}
         />
       );
+    }
+    
+    // For selection type fields, render pills instead of text input
+    if ((columnType === 'singleSelect' || columnType === 'multiSelect') && cellValue) {
+      const pills = renderSelectPills(cellValue, cellIndex);
+      if (pills) {
+        return (
+          <div className="relative w-full h-full">
+            {isProcessing && (
+              <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+            {pills}
+          </div>
+        );
+      }
     }
     
     // Render a regular editable cell
@@ -90,7 +169,7 @@ const TableRow: React.FC<TableRowProps> = ({
       {row.map((cell, cellIndex) => (
         <td 
           key={cellIndex} 
-          className="h-[35px] max-h-[35px] text-[13px] border border-gray-200 p-1 whitespace-nowrap text-left relative overflow-hidden"
+          className="h-[35px] max-h-[35px] text-[13px] border border-gray-200 px-2 py-1 whitespace-nowrap text-left relative overflow-hidden"
           style={{ width: `${columnWidths[cellIndex]}px` }}
         >
           {renderCell(cellIndex, cell)}
@@ -102,5 +181,18 @@ const TableRow: React.FC<TableRowProps> = ({
     </tr>
   );
 };
+
+// Add a custom CSS class for removing scrollbars but keeping functionality
+const style = document.createElement('style');
+style.textContent = `
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+`;
+document.head.appendChild(style);
 
 export default TableRow; 

@@ -21,6 +21,12 @@ interface ColumnData {
   type: string;
   llmPrompt?: string;
   isFileInput?: boolean;
+  categories?: Category[];
+}
+
+interface Category {
+  name: string;
+  color: string;
 }
 
 const columnTypes: ColumnType[] = [
@@ -61,6 +67,7 @@ const Table: React.FC = () => {
   const [newColumnName, setNewColumnName] = useState<string>('');
   const [selectedColumnType, setSelectedColumnType] = useState<string>('text');
   const [newColumnLlmPrompt, setNewColumnLlmPrompt] = useState<string>('');
+  const [newColumnCategories, setNewColumnCategories] = useState<Category[]>([]);
   
   // State for edit column modal
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -68,6 +75,7 @@ const Table: React.FC = () => {
   const [editColumnName, setEditColumnName] = useState<string>('');
   const [editColumnType, setEditColumnType] = useState<string>('text');
   const [editColumnLlmPrompt, setEditColumnLlmPrompt] = useState<string>('');
+  const [editColumnCategories, setEditColumnCategories] = useState<Category[]>([]);
   const [editModalPosition, setEditModalPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   
   // Reference for the add column button to position the modal
@@ -251,6 +259,7 @@ const Table: React.FC = () => {
 
   // Modified handleAddColumn to show modal first
   const handleAddColumn = () => {
+    setNewColumnCategories([]);
     setShowAddColumnModal(!showAddColumnModal);
     setNewColumnName(`Column ${columns.length + 1}`);
   };
@@ -270,7 +279,8 @@ const Table: React.FC = () => {
       name: newColumnName, 
       type: selectedColumnType,
       llmPrompt: newColumnLlmPrompt,
-      isFileInput: selectedColumnType === 'file'
+      isFileInput: selectedColumnType === 'file',
+      categories: newColumnCategories
     }]);
     
     // Add width for the new column
@@ -289,6 +299,7 @@ const Table: React.FC = () => {
     setShowAddColumnModal(false);
     setSelectedColumnType('text');
     setNewColumnLlmPrompt('');
+    setNewColumnCategories([]);
     
     // Scroll to show the new column (after react updates the DOM)
     setTimeout(() => {
@@ -340,6 +351,7 @@ const Table: React.FC = () => {
     setEditColumnName(columnData[index].name);
     setEditColumnType(columnData[index].type);
     setEditColumnLlmPrompt(columnData[index].llmPrompt || '');
+    setEditColumnCategories(columnData[index].categories || []);
     
     // Show the modal
     setShowEditModal(!showEditModal);
@@ -368,7 +380,8 @@ const Table: React.FC = () => {
         name: editColumnName, 
         type: finalType,
         llmPrompt: editColumnLlmPrompt,
-        isFileInput: isFileType
+        isFileInput: isFileType,
+        categories: editColumnCategories
       };
       return newData;
     });
@@ -413,20 +426,24 @@ const Table: React.FC = () => {
     // Clear processing cells set
     setProcessingCells(new Set());
     
-    // Prepare a list of all cells to process
-    type CellToProcess = {
+    // Prepare a list of all rows to process
+    type RowToProcess = {
       rowIndex: number;
-      colIndex: number;
       imageFile: File;
-      prompt: string;
-      type: string;
+      columns: {
+        colIndex: number;
+        name: string;
+        prompt: string;
+        type: string;
+        categories?: Category[];
+      }[];
     };
     
-    const cellsToProcess: CellToProcess[] = [];
+    const rowsToProcess: RowToProcess[] = [];
     
-    // Find all cells that need processing
+    // Find all rows with images and their related columns
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      // Get the file for this row (should be in the first column)
+      // Find the file column for this row
       const fileColumn = columnData.findIndex(col => col.isFileInput);
       if (fileColumn === -1) continue;
       
@@ -434,111 +451,155 @@ const Table: React.FC = () => {
       if (!imageFile || !isImageFile(imageFile)) continue;
       
       // Find all non-file columns with prompts
+      const columnsForRow = [];
       for (let colIndex = 0; colIndex < columnData.length; colIndex++) {
         const col = columnData[colIndex];
         
         // Skip file input columns and columns without prompts
         if (col.isFileInput || !col.llmPrompt) continue;
         
-        cellsToProcess.push({
-          rowIndex,
+        columnsForRow.push({
           colIndex,
-          imageFile,
+          name: columns[colIndex],
           prompt: col.llmPrompt || '',
-          type: col.type
+          type: col.type,
+          categories: col.categories
+        });
+      }
+      
+      // Only add the row if it has columns to process
+      if (columnsForRow.length > 0) {
+        rowsToProcess.push({
+          rowIndex,
+          imageFile,
+          columns: columnsForRow
         });
       }
     }
     
     // Set initial processing status
+    const totalCells = rowsToProcess.reduce((sum, row) => sum + row.columns.length, 0);
     setProcessingStatus({
-      total: cellsToProcess.length,
+      total: totalCells,
       completed: 0,
       current: null
     });
     
-    if (cellsToProcess.length === 0) {
+    if (totalCells === 0) {
       setIsProcessing(false);
       alert('No cells to process. Please add columns with prompts.');
       return;
     }
     
-    // Process cells in batches of 3
-    const batchSize = 3;
+    // Process rows one at a time (could be batched if needed)
     let completedCells = 0;
     
-    // Process in batches
-    for (let i = 0; i < cellsToProcess.length; i += batchSize) {
-      const batch = cellsToProcess.slice(i, i + batchSize);
+    for (const row of rowsToProcess) {
+      const { rowIndex, imageFile, columns } = row;
       
-      // Update the current cells being processed
-      const cellKeys = new Set<string>();
-      batch.forEach(cell => {
-        const cellKey = `${cell.rowIndex}-${cell.colIndex}`;
-        cellKeys.add(cellKey);
+      // Mark all cells in this row as processing
+      const cellKeysInRow = new Set<string>();
+      columns.forEach(col => {
+        const cellKey = `${rowIndex}-${col.colIndex}`;
+        cellKeysInRow.add(cellKey);
       });
       
-      // Update all cells that are currently being processed
       setProcessingCells(prevCells => {
         const newCells = new Set(prevCells);
-        cellKeys.forEach(key => newCells.add(key));
+        cellKeysInRow.forEach(key => newCells.add(key));
         return newCells;
       });
       
-      // Update status for UI display
-      if (batch.length > 0) {
+      // Update UI with current processing status
+      if (columns.length > 0) {
         setProcessingStatus(prev => ({
           ...prev,
-          current: { row: batch[0].rowIndex, col: batch[0].colIndex }
+          current: { row: rowIndex, col: columns[0].colIndex }
         }));
       }
       
-      // Process batch in parallel
-      const results = await Promise.all(
-        batch.map(cell => 
-          openaiService.analyzeImage({
-            imageFile: cell.imageFile,
-            prompt: cell.prompt,
-            type: cell.type
-          })
-          .then(result => ({ result, cell }))
-          .catch(error => ({ 
-            result: { content: '', error: error instanceof Error ? error.message : 'Unknown error' },
-            cell 
-          }))
-        )
-      );
-      
-      // Update UI with results
-      results.forEach(({ result, cell }) => {
-        const { rowIndex, colIndex } = cell;
-        const cellKey = `${rowIndex}-${colIndex}`;
+      try {
+        // Process the entire row with a single API call
+        const columnConfigs = columns.map(col => ({
+          index: col.colIndex,
+          name: col.name,
+          prompt: col.prompt,
+          type: col.type,
+          categories: col.categories
+        }));
         
-        // Remove from processing cells
-        setProcessingCells(prevCells => {
-          const newCells = new Set(prevCells);
-          newCells.delete(cellKey);
-          return newCells;
+        const result = await openaiService.analyzeImageRow({
+          imageFile,
+          columns: columnConfigs
         });
         
-        // Update the cell with the result
         if (!result.error) {
-          setRows(prevRows => {
-            const newRows = [...prevRows];
-            newRows[rowIndex][colIndex] = result.content;
-            return newRows;
+          // Update each cell with its respective result
+          result.results.forEach(colResult => {
+            const colIndex = colResult.index;
+            const cellKey = `${rowIndex}-${colIndex}`;
+            
+            // Update the cell value
+            setRows(prevRows => {
+              const newRows = [...prevRows];
+              if (colResult.content) {
+                newRows[rowIndex][colIndex] = colResult.content;
+              }
+              return newRows;
+            });
+            
+            // Remove from processing cells
+            setProcessingCells(prevCells => {
+              const newCells = new Set(prevCells);
+              newCells.delete(cellKey);
+              return newCells;
+            });
+            
+            // Update completed count
+            completedCells++;
+            setProcessingStatus(prev => ({
+              ...prev,
+              completed: completedCells
+            }));
           });
         } else {
-          console.error(`Error processing cell (${rowIndex}, ${colIndex}):`, result.error);
+          console.error(`Error processing row ${rowIndex}:`, result.error);
+          
+          // Mark all cells as completed even on error
+          cellKeysInRow.forEach(cellKey => {
+            setProcessingCells(prevCells => {
+              const newCells = new Set(prevCells);
+              newCells.delete(cellKey);
+              return newCells;
+            });
+          });
+          
+          // Update completed count
+          completedCells += columns.length;
+          setProcessingStatus(prev => ({
+            ...prev,
+            completed: completedCells
+          }));
         }
+      } catch (error) {
+        console.error(`Error processing row ${rowIndex}:`, error);
+        
+        // Mark all cells as completed even on error
+        cellKeysInRow.forEach(cellKey => {
+          setProcessingCells(prevCells => {
+            const newCells = new Set(prevCells);
+            newCells.delete(cellKey);
+            return newCells;
+          });
+        });
         
         // Update completed count
-        completedCells++;
+        completedCells += columns.length;
         setProcessingStatus(prev => ({
           ...prev,
           completed: completedCells
         }));
-      });
+      }
     }
     
     // Reset processing state when done
@@ -667,6 +728,8 @@ const Table: React.FC = () => {
             llmPrompt={editColumnLlmPrompt}
             onLlmPromptChange={setEditColumnLlmPrompt}
             isFileColumn={columnData[editColumnIndex]?.isFileInput}
+            categories={editColumnCategories}
+            onCategoriesChange={setEditColumnCategories}
           />
         )}
       </div>
@@ -685,6 +748,8 @@ const Table: React.FC = () => {
           onAdd={addNewColumn}
           llmPrompt={newColumnLlmPrompt}
           onLlmPromptChange={setNewColumnLlmPrompt}
+          categories={newColumnCategories}
+          onCategoriesChange={setNewColumnCategories}
         />
       )}
 

@@ -19,18 +19,18 @@ module.exports = {
         },
       },
       fontSize: {
-        'xs': '.75rem',
-        'sm': '.8rem',
-        'tiny': '.875rem',
-        'base': '1rem',
-        'lg': '1.125rem',
-        'xl': '1.25rem',
-        '2xl': '1.5rem',
-        '3xl': '1.875rem',
-        '4xl': '2.25rem',
-        '5xl': '3rem',
-        '6xl': '4rem',
-        '7xl': '5rem',
+        'xs': '12px',     // .75rem * 16
+        'sm': '13px',     // .8rem * 16 (rounded)
+        'tiny': '14px',   // .875rem * 16
+        'base': '16px',   // 1rem * 16
+        'lg': '18px',     // 1.125rem * 16
+        'xl': '20px',     // 1.25rem * 16
+        '2xl': '24px',    // 1.5rem * 16
+        '3xl': '30px',    // 1.875rem * 16
+        '4xl': '36px',    // 2.25rem * 16
+        '5xl': '48px',    // 3rem * 16
+        '6xl': '64px',    // 4rem * 16
+        '7xl': '80px',    // 5rem * 16
       },
       fontWeight: {
         hairline: 100,
