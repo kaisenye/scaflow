@@ -1,32 +1,120 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { FiPlus } from "react-icons/fi";
+import React, { useState, useRef, useEffect, ReactNode } from 'react';
+import { FiPlus, FiType, FiHash, FiCalendar, FiList, FiCheckSquare, FiFile } from "react-icons/fi";
+import Checkbox from './Checkbox';
+import AddColumnModal from './AddColumnModal';
+import EditColumnModal from './EditColumnModal';
+import TableHeader from './TableHeader';
+import TableRow from './TableRow';
 
-const ScrollableTable: React.FC = () => {
-  // Initial table layout: two columns and two rows.
-  const initialColumns = ['Column 1', 'Column 2'];
+// Define column type interface inline
+interface ColumnType {
+  id: string;
+  name: string;
+  icon: ReactNode;
+}
+
+interface ColumnData {
+  name: string;
+  type: string;
+  llmPrompt?: string;
+  isFileInput?: boolean;
+}
+
+const columnTypes: ColumnType[] = [
+  { id: 'text', name: 'Text', icon: <FiType size={12} /> },
+  { id: 'number', name: 'Number', icon: <FiHash size={12} /> },
+  { id: 'timestamp', name: 'Timestamp', icon: <FiCalendar size={12} /> },
+  { id: 'singleSelect', name: 'Single Select', icon: <FiList size={12} /> },
+  { id: 'multiSelect', name: 'Multi Select', icon: <FiCheckSquare size={12} /> },
+  { id: 'file', name: 'File', icon: <FiFile size={12} /> },
+];
+
+const Table: React.FC = () => {
+  // Initial table layout: one column for file input and two rows
+  const initialColumns = ['Files'];
   const initialRows = [
-    ['Row1-Col1', 'Row1-Col2'],
-    ['Row2-Col1', 'Row2-Col2'],
+    [''], // Empty value for file input cells
+    [''],
   ];
 
-  // State for header (columns) and body (rows).
+  // State for header (columns) and body (rows)
   const [columns, setColumns] = useState<string[]>(initialColumns);
+  
+  // Track column data including type and LLM prompt
+  const [columnData, setColumnData] = useState<ColumnData[]>([
+    { name: 'Files', type: 'file', isFileInput: true, llmPrompt: '' }
+  ]);
+  
   const [rows, setRows] = useState<string[][]>(initialRows);
+  const [files, setFiles] = useState<(File | null)[][]>(initialRows.map(() => Array(initialColumns.length).fill(null)));
 
-  // (Optional) If you want resizable columns, track each column’s width:
-  const [columnWidths, setColumnWidths] = useState<number[]>(initialColumns.map(() => 200));
+  // State for selected rows
+  const [selectedRows, setSelectedRows] = useState<boolean[]>(initialRows.map(() => false));
+  const [selectAll, setSelectAll] = useState<boolean>(false);
+  const [hoveredIndexCell, setHoveredIndexCell] = useState<number | null>(null);
+
+  // State for column type selection modal (new column)
+  const [showAddColumnModal, setShowAddColumnModal] = useState<boolean>(false);
+  const [newColumnName, setNewColumnName] = useState<string>('');
+  const [selectedColumnType, setSelectedColumnType] = useState<string>('text');
+  const [newColumnLlmPrompt, setNewColumnLlmPrompt] = useState<string>('');
+  
+  // State for edit column modal
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editColumnIndex, setEditColumnIndex] = useState<number>(-1);
+  const [editColumnName, setEditColumnName] = useState<string>('');
+  const [editColumnType, setEditColumnType] = useState<string>('text');
+  const [editColumnLlmPrompt, setEditColumnLlmPrompt] = useState<string>('');
+  const [editModalPosition, setEditModalPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  
+  // Reference for the add column button to position the modal
+  const addColumnButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Column resizing state
+  const [columnWidths, setColumnWidths] = useState<number[]>([250]); // Wider for file column
   const [resizingColumn, setResizingColumn] = useState<number | null>(null);
   const [startX, setStartX] = useState<number>(0);
   const [startWidth, setStartWidth] = useState<number>(0);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
 
   // Ref to the scrollable container.
   const containerRef = useRef<HTMLDivElement>(null);
   // Refs to hold scroll positions for restoration.
   const scrollTopRef = useRef<number | null>(null);
   const scrollLeftRef = useRef<number | null>(null);
+  
+  // Ref for the table element to set its width
+  const tableRef = useRef<HTMLTableElement>(null);
+  
+  // Calculate and update table width whenever column widths change
+  useEffect(() => {
+    if (tableRef.current) {
+      const totalWidth = columnWidths.reduce((sum, width) => sum + width, 0) + 35 + 35; // sum of all column widths + checkbox column + add column button
+      tableRef.current.style.minWidth = `${totalWidth}px`;
+    }
+  }, [columnWidths]);
+
+  // Function to handle file selection
+  const handleFileSelect = (rowIndex: number, cellIndex: number, file: File | null) => {
+    // Update files state
+    setFiles(prevFiles => {
+      const newFiles = [...prevFiles];
+      if (!newFiles[rowIndex]) {
+        newFiles[rowIndex] = [];
+      }
+      newFiles[rowIndex][cellIndex] = file;
+      return newFiles;
+    });
+    
+    // Update the text value in rows (filename or empty)
+    setRows(prevRows => {
+      const newRows = [...prevRows];
+      newRows[rowIndex][cellIndex] = file ? file.name : '';
+      return newRows;
+    });
+  };
 
   // After each update to rows or columns, restore scroll positions.
   useEffect(() => {
@@ -42,12 +130,33 @@ const ScrollableTable: React.FC = () => {
     }
   }, [rows, columns]);
 
-  // Resizing handlers (if you want to support column resizing)
+  // Update container width when resizing
+  useEffect(() => {
+    const updateContainerWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+
+    updateContainerWidth();
+    window.addEventListener('resize', updateContainerWidth);
+    
+    return () => {
+      window.removeEventListener('resize', updateContainerWidth);
+    };
+  }, []);
+
+  // Resizing handlers
   const handleResizeStart = (e: React.MouseEvent, columnIndex: number) => {
     e.preventDefault();
     setResizingColumn(columnIndex);
     setStartX(e.pageX);
     setStartWidth(columnWidths[columnIndex]);
+    
+    // Save current scroll position
+    if (containerRef.current) {
+      scrollLeftRef.current = containerRef.current.scrollLeft;
+    }
   };
 
   const handleResizeMove = (e: MouseEvent) => {
@@ -63,6 +172,12 @@ const ScrollableTable: React.FC = () => {
 
   const handleResizeEnd = () => {
     setResizingColumn(null);
+    
+    // Restore scroll position after resize is complete
+    if (containerRef.current && scrollLeftRef.current !== null) {
+      containerRef.current.scrollLeft = scrollLeftRef.current;
+      scrollLeftRef.current = null;
+    }
   };
 
   useEffect(() => {
@@ -76,80 +191,195 @@ const ScrollableTable: React.FC = () => {
     };
   }, [resizingColumn, startX, startWidth]);
 
-  // Helper: style each regular cell. If using resizable columns, use widths from state.
-  const cellStyle = (index: number): React.CSSProperties => ({
-    fontSize: '13px',
-    minWidth: '200px',
-    width: `${columnWidths[index]}px`,
-    border: '1px solid #ddd',
-    padding: '8px',
-    whiteSpace: 'nowrap',
-    textAlign: 'left',
-    position: 'relative',
-  });
-
-  // Resize handle style for header cells.
-  const resizeHandleStyle: React.CSSProperties = {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: '5px',
-    cursor: 'col-resize',
-    backgroundColor: resizingColumn !== null ? '#0066ff' : 'transparent',
+  // Row selection handlers
+  const toggleRowSelection = (rowIndex: number) => {
+    setSelectedRows(prev => {
+      const newSelected = [...prev];
+      newSelected[rowIndex] = !newSelected[rowIndex];
+      return newSelected;
+    });
   };
 
-  // The pinned (or "Add Column") header cell. Its style does not force the table’s width.
-  const pinnedCellStyle: React.CSSProperties = {
-    ...cellStyle(0), // use same height and padding as other cells
-    // instead of using cellStyle with an invalid index, we set a fixed width for the pinned cell
-    width: '50px',
-    minWidth: '50px',
-    right: 0,
-    backgroundColor: '#fff',
-    zIndex: 2,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    cursor: 'pointer',
+  const toggleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    setSelectedRows(Array(rows.length).fill(newSelectAll));
   };
+
+  // When adding a new row, also add its selection state
+  useEffect(() => {
+    if (selectedRows.length !== rows.length) {
+      setSelectedRows(prev => {
+        const newSelected = [...prev];
+        while (newSelected.length < rows.length) {
+          newSelected.push(false);
+        }
+        return newSelected;
+      });
+    }
+  }, [rows.length, selectedRows.length]);
 
   // Handlers for adding rows and columns.
   const handleAddRow = () => {
     if (containerRef.current) {
       scrollTopRef.current = containerRef.current.scrollTop;
     }
-    // Create a new row with empty cells.
+    
+    // Create a new row with empty cells (first cell is for file input)
     const newRow = columns.map(() => '');
     setRows((prev) => [...prev, newRow]);
+    
+    // Also update files state with null for the new row
+    setFiles(prev => {
+      const newFiles = [...prev];
+      newFiles.push(Array(columns.length).fill(null));
+      return newFiles;
+    });
   };
 
+  // Modified handleAddColumn to show modal first
   const handleAddColumn = () => {
+    setShowAddColumnModal(!showAddColumnModal);
+    setNewColumnName(`Column ${columns.length + 1}`);
+  };
+
+  // Function to add the new column with type and LLM prompt
+  const addNewColumn = () => {
     if (containerRef.current) {
       scrollLeftRef.current = containerRef.current.scrollLeft;
     }
-    const newColumnName = `Column ${columns.length + 1}`;
+    
+    // Get current total width
+    const currentTotalWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+    
+    // Add the new column
     setColumns((prev) => [...prev, newColumnName]);
-    // When adding a column, also add a default width for it.
-    setColumnWidths((prev) => [...prev, 200]);
+    setColumnData((prev) => [...prev, { 
+      name: newColumnName, 
+      type: selectedColumnType,
+      llmPrompt: newColumnLlmPrompt,
+      isFileInput: selectedColumnType === 'file'
+    }]);
+    
+    // Add width for the new column
+    const newColumnWidth = selectedColumnType === 'file' ? 250 : 200;
+    setColumnWidths((prev) => [...prev, newColumnWidth]);
+    
+    // Update rows with empty values for the new column
     setRows((prevRows) => prevRows.map((row) => [...row, '']));
+    
+    // Update files with null for the new column if it's a file type
+    if (selectedColumnType === 'file') {
+      setFiles(prev => prev.map(row => [...row, null]));
+    }
+    
+    // Close the modal and reset state
+    setShowAddColumnModal(false);
+    setSelectedColumnType('text');
+    setNewColumnLlmPrompt('');
+    
+    // Scroll to show the new column (after react updates the DOM)
+    setTimeout(() => {
+      if (containerRef.current) {
+        const newTotalWidth = currentTotalWidth + newColumnWidth;
+        containerRef.current.scrollLeft = newTotalWidth;
+      }
+    }, 0);
   };
 
-  // Styles for the scrollable container.
-  const containerStyle: React.CSSProperties = {
-    width: '100%', // Now fills the parent's width exactly
-    height: '85%',
-    overflow: 'auto',
-    border: '1px solid #ccc',
-    backgroundColor: '#fff',
+  // Handler for cell value changes
+  const handleCellChange = (rowIndex: number, cellIndex: number, value: string) => {
+    // Only update text cells, not file input cells
+    if (!columnData[cellIndex]?.isFileInput) {
+      setRows((prevRows) => {
+        const newRows = [...prevRows];
+        newRows[rowIndex][cellIndex] = value;
+        return newRows;
+      });
+    }
   };
 
-  // Table style:
-  // We let the table expand naturally by using table-layout: auto and a min-width of min-content.
-  const tableStyle: React.CSSProperties = {
-    borderCollapse: 'collapse',
-    tableLayout: 'auto',
-    minWidth: 'min-content',
+  // Handler for column header click
+  const handleColumnClick = (index: number, event: React.MouseEvent) => {
+    // Get the clicked column header element
+    const columnHeader = event.currentTarget as HTMLElement;
+    const rect = columnHeader.getBoundingClientRect();
+    
+    // Get the table container position
+    const containerRect = containerRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+    
+    // Calculate position for the edit modal
+    // We use the scroll position of the container to adjust for scrolling
+    const scrollLeft = containerRef.current?.scrollLeft || 0;
+    
+    // Set position for the edit modal - absolute position relative to the table container
+    setEditModalPosition({
+      top: rect.bottom - containerRect.top, // Position below the header
+      left: rect.left - containerRect.left + scrollLeft, // Align with left edge of header
+    });
+    
+    console.log('Column clicked:', index, 'Position:', {
+      top: rect.bottom - containerRect.top,
+      left: rect.left - containerRect.left + scrollLeft,
+    });
+    
+    // Set the edit column details
+    setEditColumnIndex(index);
+    setEditColumnName(columnData[index].name);
+    setEditColumnType(columnData[index].type);
+    setEditColumnLlmPrompt(columnData[index].llmPrompt || '');
+    
+    // Show the modal
+    setShowEditModal(!showEditModal);
+  };
+
+  // Handler for saving edited column
+  const saveEditedColumn = () => {
+    if (editColumnIndex < 0) return;
+    
+    const isOriginalFileType = columnData[editColumnIndex].isFileInput;
+    // For file columns, always keep the type as 'file' regardless of UI selection
+    const finalType = isOriginalFileType ? 'file' : editColumnType;
+    const isFileType = finalType === 'file';
+    const wasFileType = columnData[editColumnIndex].isFileInput;
+    
+    // Update column name and data
+    setColumns((prev) => {
+      const newColumns = [...prev];
+      newColumns[editColumnIndex] = editColumnName;
+      return newColumns;
+    });
+    
+    setColumnData((prev) => {
+      const newData = [...prev];
+      newData[editColumnIndex] = { 
+        name: editColumnName, 
+        type: finalType,
+        llmPrompt: editColumnLlmPrompt,
+        isFileInput: isFileType
+      };
+      return newData;
+    });
+    
+    // If column type changed to/from file, update the files state
+    if (isFileType !== wasFileType) {
+      if (isFileType) {
+        // Changed to file type, initialize file array
+        setFiles(prev => {
+          const newFiles = [...prev];
+          rows.forEach((_, rowIndex) => {
+            if (!newFiles[rowIndex]) {
+              newFiles[rowIndex] = [];
+            }
+            newFiles[rowIndex][editColumnIndex] = null;
+          });
+          return newFiles;
+        });
+      }
+    }
+    
+    // Close the modal
+    setShowEditModal(false);
   };
 
   return (
@@ -164,68 +394,92 @@ const ScrollableTable: React.FC = () => {
       </div>
       
       {/* Scrollable container */}
-      <div ref={containerRef} style={containerStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
-              {columns.map((col, index) => (
-                <th key={index} style={cellStyle(index)}>
-                  {col}
-                  <div
-                    style={resizeHandleStyle}
-                    onMouseDown={(e) => handleResizeStart(e, index)}
-                  />
-                </th>
+      <div 
+        ref={containerRef} 
+        className="relative w-full h-[85%] overflow-auto border border-gray-200 bg-white"
+      >
+        <div className="relative">
+          <table 
+            ref={tableRef}
+            className="border-collapse table-fixed"
+          >
+            <TableHeader 
+              columns={columns}
+              columnWidths={columnWidths}
+              selectAll={selectAll}
+              onSelectAll={toggleSelectAll}
+              onAddColumn={handleAddColumn}
+              onResizeStart={handleResizeStart}
+              resizingColumn={resizingColumn}
+              addColumnButtonRef={addColumnButtonRef}
+              onColumnClick={handleColumnClick}
+              columnData={columnData}
+            />
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <TableRow
+                  key={rowIndex}
+                  row={row}
+                  rowIndex={rowIndex}
+                  columnWidths={columnWidths}
+                  isSelected={selectedRows[rowIndex]}
+                  hoveredIndexCell={hoveredIndexCell}
+                  onMouseEnter={setHoveredIndexCell}
+                  onMouseLeave={() => setHoveredIndexCell(null)}
+                  onRowSelect={toggleRowSelection}
+                  onCellChange={handleCellChange}
+                  columnData={columnData}
+                  files={files}
+                  onFileSelect={handleFileSelect}
+                />
               ))}
-              {/* Pinned header cell for "Add Column" */}
-              <th style={pinnedCellStyle}>
-                <button onClick={handleAddColumn}>
-                  <FiPlus size={20} />
-                </button>
-              </th>
-              
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} style={cellStyle(cellIndex)}>
-                    <input
-                      type="text"
-                      value={cell}
-                      onChange={(e) =>
-                        setRows((prevRows) => {
-                          const newRows = [...prevRows];
-                          newRows[rowIndex][cellIndex] = e.target.value;
-                          return newRows;
-                        })
-                      }
-                      style={{
-                        width: '100%',
-                        border: 'none',
-                        outline: 'none',
-                        background: 'transparent',
-                      }}
-                    />
-                  </td>
-                ))}
-                {/* Extra cell for alignment with the pinned header cell.
-                    Use a fixed style rather than cellStyle with an invalid index. */}
-                {/* <td style={pinnedCellStyle}></td> */}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Edit Column Modal - positioned inside scrollable container */}
+        {showEditModal && (
+          <EditColumnModal
+            show={showEditModal}
+            columnIndex={editColumnIndex}
+            position={editModalPosition}
+            columnTypes={columnTypes}
+            selectedColumnType={editColumnType}
+            columnName={editColumnName}
+            onColumnNameChange={setEditColumnName}
+            onColumnTypeSelect={setEditColumnType}
+            onCancel={() => setShowEditModal(false)}
+            onSave={saveEditedColumn}
+            llmPrompt={editColumnLlmPrompt}
+            onLlmPromptChange={setEditColumnLlmPrompt}
+            isFileColumn={columnData[editColumnIndex]?.isFileInput}
+          />
+        )}
       </div>
 
-      {/* Fixed Add Row button */}
-     {/* Bottom pinned bar (like the image) */}
+      {/* Add Column Modal for adding new columns */}
+      {showAddColumnModal && (
+        <AddColumnModal
+          show={showAddColumnModal}
+          buttonRef={addColumnButtonRef}
+          columnTypes={columnTypes}
+          selectedColumnType={selectedColumnType}
+          newColumnName={newColumnName}
+          onColumnNameChange={setNewColumnName}
+          onColumnTypeSelect={setSelectedColumnType}
+          onCancel={() => setShowAddColumnModal(false)}
+          onAdd={addNewColumn}
+          llmPrompt={newColumnLlmPrompt}
+          onLlmPromptChange={setNewColumnLlmPrompt}
+        />
+      )}
+
+      {/* Bottom pinned "Add Row" bar */}
       <div 
-        className="flex justify-start items-start h-10 w-full bg-white text-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200"
+        className="flex justify-start items-start h-8 w-full bg-white text-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200"
         onClick={handleAddRow}>
-        <div className="flex justify-center items-center w-10 h-full border border-gray-200">
-           <FiPlus size={15} />
+        <div className="flex justify-center items-center w-8 h-full border border-gray-200">
+           <FiPlus size={14} />
         </div>
         <div className="flex justify-start items-center size-full pl-2 border border-gray-200">
           New Row
@@ -235,4 +489,4 @@ const ScrollableTable: React.FC = () => {
   );
 };
 
-export default ScrollableTable;
+export default Table;
