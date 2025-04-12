@@ -120,3 +120,40 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Global scrollbar styles */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+  background: #dfdfdf;
+}
+
+::-webkit-scrollbar-track {
+  background: #dfdfdf;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #f7f7f7;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #dfdfdf;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #dfdfdf #dfdfdf;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import Checkbox from './Checkbox';
+import Checkbox from '../ui/Checkbox';
 import FileInputCell from './FileInputCell';
 
 interface Category {
@@ -181,18 +181,5 @@ const TableRow: React.FC<TableRowProps> = ({
     </tr>
   );
 };
-
-// Add a custom CSS class for removing scrollbars but keeping functionality
-const style = document.createElement('style');
-style.textContent = `
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-`;
-document.head.appendChild(style);
 
 export default TableRow; 

@@ -760,7 +760,7 @@ const Table: React.FC = () => {
         <div className="flex justify-center items-center w-8 h-full border border-gray-200">
            <FiPlus size={14} />
         </div>
-        <div className="flex justify-start items-center size-full pl-2 border border-gray-200">
+        <div className="flex justify-start items-center size-full text-xs pl-2 border border-gray-200 select-none">
           New Row
         </div>
       </div>

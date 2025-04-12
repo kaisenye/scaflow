@@ -1,6 +1,6 @@
 import React from 'react';
 import { FiPlus, FiType, FiHash, FiCalendar, FiList, FiCheckSquare, FiFile } from "react-icons/fi";
-import Checkbox from './Checkbox';
+import Checkbox from '../ui/Checkbox';
 
 interface ColumnData {
   name: string;
@@ -80,7 +80,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
     <thead>
       <tr className="sticky top-0 bg-white z-[1] border-b border-gray-200">
         {/* Index/checkbox header cell */}
-        <th className="h-[35px] w-[35px] max-h-[35px] max-w-[35px] text-[13px] bg-[#FBFBFB] border border-gray-200 border-r-gray-200 p-1 whitespace-nowrap text-center relative overflow-hidden">
+        <th className="h-[35px] w-[35px] max-h-[35px] max-w-[35px] text-[13px] bg-[#FBFBFB] border border-gray-200 border-r-gray-200 p-1 whitespace-nowrap text-center relative overflow-hidden z-[2]">
           <div className="flex justify-center items-center w-full h-full">
             <Checkbox checked={selectAll} onClick={onSelectAll} />
           </div>
