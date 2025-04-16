@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Home } from 'lucide-react';
 
 interface BreadcrumbItem {
   label: string;
@@ -9,13 +9,37 @@ interface BreadcrumbItem {
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
+  context?: 'knowledge' | 'projects' | 'default';
 }
 
-const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
+const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, context = 'default' }) => {
+  // Define the root link based on context
+  const getRootLink = () => {
+    switch (context) {
+      case 'knowledge':
+        return {
+          label: 'Knowledge',
+          href: '/knowledge'
+        };
+      case 'projects':
+        return {
+          label: 'Projects',
+          href: '/projects'
+        };
+      default:
+        return {
+          label: 'Home',
+          href: '/'
+        };
+    }
+  };
+
+  const rootLink = getRootLink();
+
   return (
     <nav className="flex items-center space-x-2 text-sm text-gray-500">
-      <Link href="/knowledge" className="hover:text-gray-700">
-        Knowledge
+      <Link href={rootLink.href} className="hover:text-gray-700 flex items-center">
+        {rootLink.label}
       </Link>
       {items.map((item, index) => (
         <React.Fragment key={item.href}>

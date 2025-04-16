@@ -191,7 +191,7 @@ const EditColumnModal: React.FC<EditColumnModalProps> = ({
   return (
     <div 
       ref={modalRef}
-      className="absolute z-[100] w-[300px] bg-white border border-gray-200 rounded-lg shadow-md p-4"
+      className="absolute z-[100] w-[350px] bg-white border border-gray-200 rounded-lg shadow-md p-4"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,

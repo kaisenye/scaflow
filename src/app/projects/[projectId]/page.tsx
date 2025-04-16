@@ -5,7 +5,13 @@ import Breadcrumb from '@/components/shared/Breadcrumb';
 import TableExplorer from '@/components/shared/TableExplorer';
 import PageHeader from '@/components/shared/PageHeader';
 
-// Mock data for projects and their tables
+interface PageProps {
+  params: Promise<{
+    projectId: string;
+  }>;
+}
+
+// Mock data for projects (same as in the main page)
 const mockProjects = [
   {
     id: '1',
@@ -99,34 +105,49 @@ const mockProjects = [
   },
 ];
 
-const ProjectsPage = () => {
-  const handleAddProject = () => {
-    // TODO: Implement add project functionality
-    console.log('Add project clicked');
+const ProjectPage = ({ params }: PageProps) => {
+  const resolvedParams = React.use(params);
+  const { projectId } = resolvedParams;
+  const project = mockProjects.find((p) => p.id === projectId);
+
+  if (!project) {
+    return <div>Project not found</div>;
+  }
+
+  const breadcrumbItems = [
+    {
+      label: project.name,
+      href: `/projects/${projectId}`,
+    },
+  ];
+
+  const handleAddTable = () => {
+    // TODO: Implement add table functionality
+    console.log('Add table clicked');
   };
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 ml-6">
-          <Breadcrumb items={[]} context="projects" />
+          <Breadcrumb items={breadcrumbItems} context="projects" />
         </div>
         
         <div className="bg-white border border-gray-200 rounded-md p-6">
           <PageHeader
-            title="Projects"
+            title={project.name}
             actions={[
               {
-                label: 'Add Project',
-                onClick: handleAddProject,
+                label: 'Add Table',
+                onClick: handleAddTable,
               },
             ]}
           />
-          <TableExplorer projects={mockProjects} />
+          <TableExplorer projects={mockProjects} currentProjectId={projectId} />
         </div>
       </div>
     </div>
   );
 };
 
-export default ProjectsPage;
+export default ProjectPage; 

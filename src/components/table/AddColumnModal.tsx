@@ -190,10 +190,10 @@ const AddColumnModal: React.FC<AddColumnModalProps> = ({
   return (
     <div 
       ref={modalRef}
-      className="absolute z-[100] w-[300px] bg-white border border-gray-200 rounded-lg shadow-md p-4"
+      className="absolute z-[100] w-[350px] bg-white border border-gray-200 rounded-lg shadow-md p-4"
       style={{
         top: buttonRect ? `${buttonRect.bottom + 5}px` : '0',
-        left: buttonRect ? `${buttonRect.left - 480}px` : '0',
+        left: buttonRect ? `${buttonRect.left - 530}px` : '0',
       }}
     >
       <div className="mb-4">

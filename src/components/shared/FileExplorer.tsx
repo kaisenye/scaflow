@@ -7,18 +7,40 @@ interface FileItem {
   name: string;
   type: 'file';
   path: string;
+  size: number;
+  updatedAt: string;
 }
 
 interface Collection {
   id: string;
   name: string;
   files: FileItem[];
+  updatedAt: string;
+  totalSize: number;
 }
 
 interface FileExplorerProps {
   collections: Collection[];
   currentCollectionId?: string;
 }
+
+// Helper function to format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+// Helper function to format date
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric'
+  });
+};
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ collections, currentCollectionId }) => {
   return (
@@ -32,17 +54,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ collections, currentCollect
               href={`/knowledge/${collection.id}`}
               className="flex items-start gap-4 p-4 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
             >
-              <Folder className="h-5 w-5 text-blue-500 mt-1" />
-              <div>
-                <h3 className="font-medium text-sm">{collection.name}</h3>
-                <p className="text-xs text-gray-500">{collection.files.length} files</p>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-0.5">
+                  <h3 className="font-medium text-sm">{collection.name}</h3>
+                  <p className="flex flex-row text-xs text-gray-500">Updated {formatDate(collection.updatedAt)}</p>
+                </div>
+                <div className="flex flex-row items-center gap-2 text-xs text-gray-500">
+                  <Folder className="h-3 w-3 text-gray-500" />
+                  <p>{collection.files.length} files ({formatFileSize(collection.totalSize)})</p>
+                </div>
               </div>
             </Link>
           ))}
-          <button className="flex items-center p-4 bg-gray-50 border border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors">
-            <Plus className="h-5 w-5 text-gray-400 mr-3" />
-            <span className="text-gray-600 text-sm">New Collection</span>
-          </button>
         </div>
       ) : (
         // Files view within a collection
@@ -52,16 +75,17 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ collections, currentCollect
             ?.files.map((file) => (
               <div
                 key={file.id}
-                className="flex items-center p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
               >
-                <File className="h-5 w-5 text-gray-500 mr-3" />
-                <span className="text-sm">{file.name}</span>
+                <div className="flex items-center">
+                  <File className="h-5 w-5 text-gray-500 mr-3" />
+                  <span className="text-sm">{file.name}</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  <span>{formatFileSize(file.size)} • {formatDate(file.updatedAt)}</span>
+                </div>
               </div>
             ))}
-          <button className="flex items-center p-3 bg-gray-50 border border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors w-full">
-            <Plus className="h-5 w-5 text-gray-400 mr-3" />
-            <span className="text-gray-600 text-sm">Upload File</span>
-          </button>
         </div>
       )}
     </div>
