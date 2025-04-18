@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, ReactNode } from 'react';
+import { MdOutlineFilterList } from "react-icons/md";
 import { FiPlus, FiType, FiHash, FiCalendar, FiList, FiCheckSquare, FiFile } from "react-icons/fi";
 import { Button } from '@/components/ui/button';
 import AddColumnModal from './AddColumnModal';
@@ -82,7 +83,7 @@ const Table: React.FC = () => {
   const addColumnButtonRef = useRef<HTMLButtonElement>(null);
 
   // Column resizing state
-  const [columnWidths, setColumnWidths] = useState<number[]>([250]); // Wider for file column
+  const [columnWidths, setColumnWidths] = useState<number[]>([300]); // Wider for file column
   const [resizingColumn, setResizingColumn] = useState<number | null>(null);
   const [startX, setStartX] = useState<number>(0);
   const [startWidth, setStartWidth] = useState<number>(0);
@@ -613,17 +614,21 @@ const Table: React.FC = () => {
   };
 
   return (
-    <div className="size-full bg-gray-100">
+    <div className="size-full">
       {/* Page header */}
-      <div className="flex justify-between items-center py-2 px-4">
+      <div className="flex justify-between items-center py-2 px-4 border-b border-gray-200">
         <div className="text-base font-bold">Main Table</div>
         <div className="flex items-center gap-2 text-sm">
-          <button className="bg-gray-100 px-2 py-1 rounded-sm">Share</button>
-          <button className="bg-gray-100 px-2 py-1 rounded-sm">Download</button>
           <Button 
             variant="default" 
-            className="px-2 py-0 rounded-sm" 
-            size="sm"
+            size="default"
+            className="px-4 py-0 rounded-sm">
+            Export
+          </Button>
+          <Button 
+            variant="outline" 
+            className="px-4 py-0 rounded-sm" 
+            size="default"
             onClick={runLlmEngine}
             disabled={isProcessing}
           >
@@ -634,11 +639,45 @@ const Table: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="rounded-sm flex items-center gap-1"
+          onClick={() => {
+            // TODO: Implement filter action
+            console.log('Filter button clicked');
+          }}
+        >
+          <MdOutlineFilterList className='w-4 h-4' />
+          <span>Filter</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="rounded-sm flex items-center gap-1"
+          onClick={handleAddRow}
+        >
+          <FiFile className='w-4 h-4' />
+          <span>Add File</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="rounded-sm flex items-center gap-1"
+          onClick={handleAddColumn}
+        >
+          <FiPlus className='w-4 h-4' />
+          <span>Add Column</span>
+        </Button>
+      </div>
       
       {/* Scrollable container */}
       <div 
         ref={containerRef} 
-        className="relative w-full h-[85%] overflow-auto border border-gray-200 bg-white"
+        className="relative w-full h-[80%] overflow-auto border-y-1 border-gray-200 bg-white"
       >
         <div className="relative">
           <table 
@@ -761,7 +800,7 @@ const Table: React.FC = () => {
            <FiPlus size={14} />
         </div>
         <div className="flex justify-start items-center size-full text-xs pl-2 border border-gray-200 select-none">
-          New Row
+          Add a file
         </div>
       </div>
     </div>

@@ -80,7 +80,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
     <thead>
       <tr className="sticky top-0 bg-white z-[1] border-b border-gray-200">
         {/* Index/checkbox header cell */}
-        <th className="h-[35px] w-[35px] max-h-[35px] max-w-[35px] text-[13px] bg-[#FBFBFB] border border-gray-200 border-r-gray-200 p-1 whitespace-nowrap text-center relative overflow-hidden z-[2]">
+        <th className="h-[35px] w-[35px] max-h-[35px] max-w-[35px] text-sm bg-[#FBFBFB] border border-gray-200 border-r-gray-200 p-1 whitespace-nowrap text-center relative overflow-hidden z-[2]">
           <div className="flex justify-center items-center w-full h-full">
             <Checkbox checked={selectAll} onClick={onSelectAll} />
           </div>
@@ -89,7 +89,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         {columns.map((col, index) => (
           <th 
             key={index} 
-            className="h-[35px] max-h-[35px] text-[13px] border border-gray-200 p-2 whitespace-nowrap text-left relative overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors duration-150"
+            className="h-[35px] max-h-[35px] text-sm border border-gray-200 p-2 whitespace-nowrap text-left relative overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors duration-150"
             style={{ width: `${columnWidths[index]}px` }}
             onClick={(e) => handleColumnClick(index, e)}
             data-column-index={index}
@@ -113,13 +113,13 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         
         {/* Pinned header cell for "Add Column" */}
         <th 
-          className="bg-white hover:bg-gray-50 transition-colors duration-200 h-[35px] w-[35px] min-w-[35px] min-h-[35px] text-xs border border-gray-200 p-1 relative z-[2] cursor-pointer"
+          className="bg-white hover:bg-gray-50 transition-colors duration-200 h-[35px] w-[35px] min-w-[35px] min-h-[35px] text-sm border border-gray-200 p-1 relative z-[2] cursor-pointer"
           onClick={onAddColumn}
         >
           <button 
             ref={addColumnButtonRef}
             className="flex justify-center items-center w-full h-full cursor-pointer">
-            <FiPlus size={20} />
+            <FiPlus size={18} />
           </button>
         </th>
       </tr>

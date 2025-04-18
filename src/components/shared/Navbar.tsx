@@ -20,7 +20,7 @@ export default function Navbar() {
   };
   
   return (
-    <div className="w-full top-0 left-0 flex flex-col justify-between h-screen pl-4 pr-2 py-2 bg-gray-100 text-black">
+    <div className="w-full top-0 left-0 flex flex-col justify-between h-screen pl-4 pr-2 py-2 bg-gray-50 text-black">
       <div>
         {/* Logo and title */}
         <Link href="/" className="flex items-center mb-8">
@@ -33,7 +33,7 @@ export default function Navbar() {
           <Link 
             href="/profile" 
             className={`flex items-center gap-3 px-2 py-2 rounded transition-colors duration-200 ${
-              isActive('/profile') ? "bg-gray-200" : "hover:bg-gray-200"
+              isActive('/profile') ? "bg-gray-100" : "hover:bg-gray-100"
             }`}
           >
             <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-300">
